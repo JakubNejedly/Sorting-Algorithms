@@ -4,8 +4,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 include_directories(include)
 
-add_executable(AVLTree src/main.cpp)
-
+add_executable(benchmark src/benchmark.cpp)
 
 add_subdirectory(lib/googletest)
 add_executable(run_tests 
