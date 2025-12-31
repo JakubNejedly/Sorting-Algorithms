@@ -22,3 +22,6 @@ target_include_directories(run_tests PRIVATE include)
 
 include(GoogleTest)
 gtest_discover_tests(run_tests)
+
+enable_testing()
+add_test(NAME UnitTests COMMAND run_tests)
