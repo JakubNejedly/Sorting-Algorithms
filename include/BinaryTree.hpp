@@ -7,10 +7,12 @@ class BinaryTree : public SortingTree<T, Comparator> {
 public:
     BinaryTree(Comparator comparator = Comparator());
 
+    virtual ~BinaryTree() = default;
+
     virtual void insert(T data) override;
     virtual void remove(const T& data) override;
-    T removeMin() override;
-    T removeMax() override;
+    virtual T removeMin() override;
+    virtual T removeMax() override;
 
 protected:
     using SortingTree<T, Comparator>::m_root;
@@ -18,18 +20,19 @@ protected:
 
     using TreeNodePtr = std::unique_ptr<TreeNode<T>>;
 
+private:
     // Helper for insert
     void recursive_insert(TreeNodePtr& node, T data);
     
     // Helpers for remove
-    TreeNodePtr recursive_remove(TreeNodePtr node, const T& data);
+    void recursive_remove(TreeNodePtr& node, const T& data);
     TreeNodePtr extractMin(TreeNodePtr& node);
     
     // Helper for removeMin
-    TreeNodePtr recursive_remove_min(TreeNodePtr node, T& outData);
+    T recursive_remove_min(TreeNodePtr& node);
 
     // Helper for removeMax
-    TreeNodePtr recursive_remove_max(TreeNodePtr node, T& outData);
+    T recursive_remove_max(TreeNodePtr& node);
 };
 
 template <typename T, typename Comparator>
@@ -66,43 +69,50 @@ void BinaryTree<T, Comparator>::recursive_insert(TreeNodePtr& node, T data) {
 
 template <typename T, typename Comparator>
 void BinaryTree<T, Comparator>::remove(const T& data) {
-    m_root = recursive_remove(std::move(m_root), data);
+    recursive_remove(m_root, data);
 }
 
 template <typename T, typename Comparator>
-typename BinaryTree<T, Comparator>::TreeNodePtr
-BinaryTree<T, Comparator>::recursive_remove(TreeNodePtr node, const T& data) {
+void BinaryTree<T, Comparator>::recursive_remove(TreeNodePtr& node, const T& data) {
     if (!node){
-        // Node with data not found
-        return nullptr;
+        // Record not found
+        return;
     }
 
     if (m_comparator(data, node->getData())) {
-        node->getLeft() = recursive_remove(std::move(node->getLeft()), data);
+        recursive_remove(node->getLeft(), data);
     } else if (m_comparator(node->getData(), data)) {
-        node->getRight() = recursive_remove(std::move(node->getRight()), data);
+        recursive_remove(node->getRight(), data);
     } else {
         // Data found
-        bool anyLeft = node->decrementCount();
-        this->m_elementsCount--;
-        if (anyLeft) {
-            return node;
+        if (node->decrementCount()) {
+            this->m_elementsCount--;
+            return;
         }
 
-        // Remmove node with only no or one child
+        // Remove node with only no or one child
+        this->m_elementsCount--;
         this->m_nodesCount--;  
-        if (!node->getLeft()) return std::move(node->getRight());
-        if (!node->getRight()) return std::move(node->getLeft());
-
-        // Node with two children
-        TreeNodePtr successor = extractMin(node->getRight());
-        successor->setLeft(std::move(node->getLeft()));
-        successor->setRight(std::move(node->getRight()));
-        node = std::move(successor);
+        if (!node->getLeft()) {
+            // Only right child case
+            node = std::move(node->getRight());
+            return;
+        } 
+        else if (!node->getRight()) {
+            // Only left child case
+            node = std::move(node->getLeft());
+            return;
+        } 
+        else {
+            // Two children case
+            TreeNodePtr successor = extractMin(node->getRight());
+            successor->setLeft(std::move(node->getLeft()));
+            successor->setRight(std::move(node->getRight()));
+            node = std::move(successor);
+        }
     }
 
     node->updateHeight();
-    return node;
 }
 
 template <typename T, typename Comparator>
@@ -111,10 +121,10 @@ BinaryTree<T, Comparator>::extractMin(TreeNodePtr& node) {
     if (node->getLeft()) {
         TreeNodePtr minNode = extractMin(node->getLeft());
         node->updateHeight();
-        return minNode; 
+        return minNode;
     }
 
-    auto minNode = std::move(node);
+    TreeNodePtr minNode = std::move(node);
     node = std::move(minNode->getRight()); 
     return minNode;
 }
@@ -124,32 +134,28 @@ T BinaryTree<T, Comparator>::removeMin() {
     if (this->empty()) {
         throw std::runtime_error("Tree is empty");
     }
-
     this->m_elementsCount--;
-    T result_data; 
-    m_root = recursive_remove_min(std::move(m_root), result_data);
-    return result_data;
+    return std::move(recursive_remove_min(m_root));
 }
 
 template <typename T, typename Comparator>
-typename BinaryTree<T, Comparator>::TreeNodePtr
-BinaryTree<T, Comparator>::recursive_remove_min(TreeNodePtr node, T& outData) {
+T BinaryTree<T, Comparator>::recursive_remove_min(TreeNodePtr& node) {
     // Iterate to find min value
     if (node->getLeft()) {
-        node->getLeft() = recursive_remove_min(std::move(node->getLeft()), outData);
+        T outData = std::move(recursive_remove_min(node->getLeft()));
         node->updateHeight();
-        return node;
+        return std::move(outData);
     }
 
-    outData = node->getData();
-    // Decrement count
-    bool anyLeft = node->decrementCount();
-    if (anyLeft) {
-        return node;
+    T outData = std::move(node->getData());
+    if (node->decrementCount()) {
+        // Only decrement count
+        return std::move(outData);
     }
     // Replace node with its right child
     this->m_nodesCount--;
-    return std::move(node->getRight());
+    node = std::move(node->getRight());
+    return std::move(outData);
 }
 
 template <typename T, typename Comparator>
@@ -157,30 +163,26 @@ T BinaryTree<T, Comparator>::removeMax() {
     if (this->empty()) {
         throw std::runtime_error("Tree is empty");
     }
-
     this->m_elementsCount--;
-    T result_data; 
-    m_root = recursive_remove_max(std::move(m_root), result_data);
-    return result_data;
+    return std::move(recursive_remove_max(m_root));
 }
 
 template <typename T, typename Comparator>
-typename BinaryTree<T, Comparator>::TreeNodePtr
-BinaryTree<T, Comparator>::recursive_remove_max(TreeNodePtr node, T& outData) {
+T BinaryTree<T, Comparator>::recursive_remove_max(TreeNodePtr& node) {
     // Iterate to find max value
     if (node->getRight()) {
-        node->getRight() = recursive_remove_max(std::move(node->getRight()), outData);
-        return node;
+        T outData = std::move(recursive_remove_max(node->getRight()));
+        node->updateHeight();
+        return std::move(outData);
     }
 
-    outData = node->getData();
-    // Decrement count
-    bool anyLeft = node->decrementCount();
-    if (anyLeft) {
-        return node;
+    T outData = std::move(node->getData());
+    if (node->decrementCount()) {
+        // Only decrement count
+        return std::move(outData);
     }
-
     // Replace node with its left child
     this->m_nodesCount--;
-    return std::move(node->getLeft());
+    node = std::move(node->getLeft());  
+    return std::move(outData);
 }
