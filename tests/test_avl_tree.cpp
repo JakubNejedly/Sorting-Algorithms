@@ -1,6 +1,9 @@
 #include <gtest/gtest.h>
 #include "AVLTree.hpp"
 
+#include <queue>
+#include <vector>
+
 class AVLTreeTest : public ::testing::Test {
 protected:
     AVLTree<int> avl;
@@ -129,4 +132,32 @@ TEST_F(AVLTreeTest, CascadingRotations) {
     EXPECT_EQ(avl.getRoot()->getRight()->getData(), 60);
     EXPECT_EQ(avl.getRoot()->getRight()->getLeft()->getData(), 55);
     EXPECT_EQ(avl.getRoot()->getRight()->getRight()->getData(), 80);
+}
+
+TEST_F(AVLTreeTest, CompareWithPriorityQueue) {
+    std::priority_queue<int, std::vector<int>, std::greater<int>> pq;
+    
+    std::vector<int> testData = {
+        42, 17, 42, 1, 99, 15, 8, 42, 23, 7, 
+        10, 5, 88, 31, 12, 15, 6, 3, 50, 21
+    };
+
+    for (int val : testData) {
+        avl.insert(val);
+        pq.push(val);
+    }
+
+    EXPECT_EQ(avl.elementsCount(), 20);
+    EXPECT_EQ(avl.nodesCount(), 17);
+
+    for (int i = 0; i < 20; ++i) {
+        int avlMin = avl.removeMin();
+        int pqMin = pq.top();
+        pq.pop();
+
+        EXPECT_EQ(avlMin, pqMin) << "Mismatch at index " << i;
+    }
+
+    EXPECT_TRUE(avl.empty());
+    EXPECT_TRUE(pq.empty());
 }
